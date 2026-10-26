@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terningkast</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Terningkast">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<style>
+/* Layout: terningvalg i rutenett øverst, fordel/ulempe, terningene i midten (én figur per terning), resultat og historikk nederst. */
+:root {
+  --bg: #E8EDEF;
+  --ink: #12262E;
+  --muted: #566D77;
+  --die: #17343F;
+  --die-face: #20495A;
+  --die-line: #6FA3B5;
+  --num: #EAF3F6;
+  --gold: #A86B0C;
+  --red: #B3372F;
+  --chip: #D6E0E4;
+  --line: #BFCED5;
+  --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --font-body: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-text-size-adjust: 100%;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E181D;
+    --ink: #E3EEF2;
+    --muted: #8CA3AD;
+    --die: #1D3B47;
+    --die-face: #28566A;
+    --die-line: #7FB2C4;
+    --num: #F1F8FA;
+    --gold: #E5A93C;
+    --red: #EE7A70;
+    --chip: #172830;
+    --line: #26404B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E181D;
+  --ink: #E3EEF2;
+  --muted: #8CA3AD;
+  --die: #1D3B47;
+  --die-face: #28566A;
+  --die-line: #7FB2C4;
+  --num: #F1F8FA;
+  --gold: #E5A93C;
+  --red: #EE7A70;
+  --chip: #172830;
+  --line: #26404B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding-block: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+button:focus-visible { outline: 3px solid var(--die-line); outline-offset: 3px; }
+
+.wrap {
+  width: 100%;
+  max-width: 460px;
+  margin-inline: auto;
+  min-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 30px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.expr {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--muted);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cell {
+  display: grid;
+  grid-template-columns: auto 36px 1fr 36px;
+  align-items: center;
+  gap: 2px;
+  min-height: 48px;
+  padding: 4px 6px 4px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+}
+.cell .tag {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  min-width: 38px;
+}
+.cell b {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.cell button {
+  width: 36px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--chip);
+  font-size: 20px;
+  font-weight: 600;
+}
+.cell button:disabled { opacity: 0.35; cursor: default; }
+.cell.on { background: var(--die); border-color: var(--die); color: var(--num); }
+.cell.on button { background: var(--die-face); }
+
+.advbox { display: grid; gap: 4px; }
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+.seg.off { opacity: 0.45; }
+.seg button {
+  border: 0;
+  background: transparent;
+  min-height: 40px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--muted);
+}
+.seg button:disabled { cursor: default; }
+.seg button[aria-pressed="true"] { background: var(--die); color: var(--num); }
+.advnote { font-size: 12px; color: var(--muted); text-align: center; }
+
+.stage { flex: 1; min-height: 190px; display: grid; }
+.dice-btn {
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+.dice-btn:disabled { cursor: default; }
+.dice {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: 6px;
+  transition: transform 0.12s ease;
+}
+.dice-btn:active:not(:disabled) .dice { transform: scale(0.97); }
+.none { color: var(--muted); font-size: 15px; text-align: center; padding: 24px 0; }
+
+.d {
+  --edge: var(--die-line);
+  --numc: var(--num);
+  width: var(--sz);
+  height: var(--sz);
+  flex: none;
+  display: block;
+  overflow: visible;
+}
+.d.nat20 { --edge: var(--gold); --numc: var(--gold); }
+.d.nat1 { --edge: var(--red); --numc: var(--red); }
+.d.drop { opacity: 0.4; }
+.d .body { fill: var(--die); stroke: var(--edge); stroke-width: 3; stroke-linejoin: round; }
+.d .face { fill: var(--die-face); stroke: var(--edge); stroke-width: 1.5; stroke-linejoin: round; }
+.d .rib { stroke: var(--edge); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; fill: none; opacity: 0.85; }
+.d .num {
+  fill: var(--numc);
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-variant-numeric: tabular-nums;
+}
+.dice.idle .num { opacity: 0.55; }
+.d .spin { transform-origin: 100px 100px; }
+.dice.tumble .spin { animation: tumble 0.7s cubic-bezier(0.3, 0.1, 0.3, 1); }
+@keyframes tumble {
+  0% { transform: rotate(0) scale(1); }
+  40% { transform: rotate(300deg) scale(0.9); }
+  100% { transform: rotate(720deg) scale(1); }
+}
+
+.result { text-align: center; min-height: 66px; display: grid; gap: 4px; align-content: start; }
+.r1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.r1.nat20 { color: var(--gold); }
+.r1.nat1 { color: var(--red); }
+.r2 { color: var(--muted); font-size: 14px; min-height: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.r2 s { opacity: 0.7; }
+
+.hist-head { display: flex; justify-content: space-between; align-items: center; }
+.hist-head button { background: none; border: 0; color: var(--muted); font-size: 13px; padding: 6px 0 6px 12px; text-decoration: underline; text-underline-offset: 3px; }
+.hist {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  min-height: 52px;
+  align-items: center;
+  scrollbar-width: none;
+}
+.hist::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  min-width: 52px;
+  height: 50px;
+  padding-inline: 10px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  background: var(--chip);
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.chip small { font-size: 10px; color: var(--muted); letter-spacing: 0.04em; line-height: 1.1; white-space: nowrap; }
+.chip b { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.1; }
+.chip.nat20 { box-shadow: inset 0 0 0 1.5px var(--gold); }
+.chip.nat20 b { color: var(--gold); }
+.chip.nat1 { box-shadow: inset 0 0 0 1.5px var(--red); }
+.chip.nat1 b { color: var(--red); }
+.empty { color: var(--muted); font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dice.tumble .spin { animation: none; }
+  .dice { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Terningkast</h1>
+    <span class="expr" id="expr">1d20</span>
+  </header>
+
+  <div class="grid" id="grid" role="group" aria-label="Velg terninger"></div>
+
+  <div class="advbox">
+    <div class="seg" id="advrow" role="group" aria-label="Fordel og ulempe på d20">
+      <button type="button" id="adv-n" data-mode="n" aria-pressed="true">Vanlig</button>
+      <button type="button" id="adv-a" data-mode="a" aria-pressed="false">Fordel</button>
+      <button type="button" id="adv-d" data-mode="d" aria-pressed="false">Ulempe</button>
+    </div>
+    <div class="advnote" id="advnote" hidden>Fordel og ulempe gjelder d20. Legg til en d20 for å bruke dem.</div>
+  </div>
+
+  <div class="stage">
+    <button type="button" id="roll" class="dice-btn" aria-label="Kast terningene">
+      <div id="dice" class="dice idle"></div>
+    </button>
+  </div>
+
+  <div class="result" aria-live="polite">
+    <div id="r1" class="r1">Klar til kast</div>
+    <div id="r2" class="r2">Trykk på terningene</div>
+  </div>
+
+  <div>
+    <div class="hist-head">
+      <span class="label">Siste kast</span>
+      <button type="button" id="clear">Nullstill</button>
+    </div>
+    <div class="hist" id="hist"><span class="empty">Kastene dine dukker opp her.</span></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var TYPES = [4, 6, 8, 10, 12, 20, 100];
+  var MAX_TOTAL = 20;
+  var CFG = { 4: { fs: 56, y: 124 }, 6: { fs: 68, y: 102 }, 8: { fs: 50, y: 108 }, 10: { fs: 50, y: 92 }, 12: { fs: 46, y: 106 }, 20: { fs: 54, y: 108 }, 100: { fs: 58, y: 102 } };
+  var SHAPES = {
+    4: '<polygon class="body" points="100,18 186,168 14,168"/><polygon class="face" points="100,63 147,145.5 53,145.5"/><path class="rib" d="M100 63 L100 18 M147 145.5 L186 168 M53 145.5 L14 168"/>',
+    6: '<rect class="body" x="30" y="30" width="140" height="140" rx="22"/><rect class="face" x="54" y="54" width="92" height="92" rx="12"/><path class="rib" d="M54 54 L42 42 M146 54 L158 42 M146 146 L158 158 M54 146 L42 158"/>',
+    8: '<polygon class="body" points="100,6 186,100 100,194 14,100"/><polygon class="face" points="100,52 146,128 54,128"/><path class="rib" d="M100 52 L100 6 M100 52 L14 100 M100 52 L186 100 M54 128 L14 100 M146 128 L186 100 M54 128 L100 194 M146 128 L100 194"/>',
+    10: '<polygon class="body" points="100,6 174,84 100,194 26,84"/><polygon class="face" points="100,40 138,86 100,150 62,86"/><path class="rib" d="M100 40 L100 6 M138 86 L174 84 M62 86 L26 84 M100 150 L100 194 M62 86 L100 194 M138 86 L100 194"/>',
+    12: '<polygon class="body" points="100,20 180,78 149.4,172 50.6,172 20,78"/><polygon class="face" points="100,58 143.8,89.8 127,141.2 73,141.2 56.2,89.8"/><path class="rib" d="M100 58 L100 20 M143.8 89.8 L180 78 M127 141.2 L149.4 172 M73 141.2 L50.6 172 M56.2 89.8 L20 78"/>',
+    20: '<polygon class="body" points="100,6 181,53 181,147 100,194 19,147 19,53"/><polygon class="face" points="100,44 150,130 50,130"/><path class="rib" d="M100 44 L100 6 M100 44 L19 53 M100 44 L181 53 M150 130 L181 53 M150 130 L181 147 M150 130 L100 194 M50 130 L19 53 M50 130 L19 147 M50 130 L100 194"/>',
+    100: '<circle class="body" cx="100" cy="100" r="86"/><circle class="face" cx="100" cy="100" r="58"/><path class="rib" d="' + (function () {
+      var d = '';
+      for (var k = 0; k < 10; k++) {
+        var a = (k * 36 - 90) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+        d += 'M' + (100 + 66 * c).toFixed(1) + ' ' + (100 + 66 * sn).toFixed(1) + ' L' + (100 + 78 * c).toFixed(1) + ' ' + (100 + 78 * sn).toFixed(1) + ' ';
+      }
+      return d;
+    })() + '"/>'
+  };
+
+  var pool = { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0, 20: 1, 100: 0 };
+  var mod = 0, mode = 'n', rolling = false, hist = [];
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  try {
+    var st = JSON.parse(localStorage.getItem('dice-pool') || 'null');
+    if (st) {
+      if (st.pool) {
+        var np = {}, tot = 0;
+        TYPES.forEach(function (s) { var n = Math.max(0, Math.min(MAX_TOTAL, st.pool[s] | 0)); np[s] = n; tot += n; });
+        if (tot <= MAX_TOTAL) pool = np;
+      }
+      if (typeof st.mod === 'number') mod = Math.max(-10, Math.min(20, st.mod | 0));
+      if (st.mode === 'a' || st.mode === 'd') mode = st.mode;
+      if (Array.isArray(st.hist)) hist = st.hist.slice(0, 12);
+    }
+  } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem('dice-pool', JSON.stringify({ pool: pool, mod: mod, mode: mode, hist: hist })); } catch (e) {}
+  }
+
+  function rnd(n) {
+    try {
+      var a = new Uint32Array(1), lim = Math.floor(4294967296 / n) * n;
+      do { crypto.getRandomValues(a); } while (a[0] >= lim);
+      return a[0] % n + 1;
+    } catch (e) { return Math.floor(Math.random() * n) + 1; }
+  }
+
+  function sign(m) { return m < 0 ? '−' : '+'; }
+  function modeName() { return mode === 'a' ? 'fordel' : 'ulempe'; }
+  function total() { var t = 0; TYPES.forEach(function (s) { t += pool[s]; }); return t; }
+  function advOn() { return pool[20] > 0 && mode !== 'n'; }
+  function exprText(spaced) {
+    var parts = [];
+    TYPES.forEach(function (s) { if (pool[s]) parts.push(pool[s] + 'd' + s); });
+    var out = parts.join(spaced ? ' + ' : '+');
+    if (!out) out = '–';
+    if (mod) out += (spaced ? ' ' : '') + sign(mod) + (spaced ? ' ' : '') + Math.abs(mod);
+    if (advOn()) out += spaced ? ' · ' + modeName() : ' ' + modeName();
+    return out;
+  }
+
+  // Build the setup grid: one cell per die type plus the modifier.
+  var grid = $('grid');
+  TYPES.forEach(function (s) {
+    var c = document.createElement('div');
+    c.className = 'cell';
+    c.id = 'cell' + s;
+    c.innerHTML = '<span class="tag">d' + s + '</span>' +
+      '<button type="button" id="m' + s + '" aria-label="Færre d' + s + '">−</button>' +
+      '<b id="c' + s + '">0</b>' +
+      '<button type="button" id="p' + s + '" aria-label="Flere d' + s + '">+</button>';
+    grid.appendChild(c);
+    $('m' + s).addEventListener('click', function () { if (rolling || pool[s] < 1) return; pool[s]--; changed(); });
+    $('p' + s).addEventListener('click', function () { if (rolling || total() >= MAX_TOTAL) return; pool[s]++; changed(); });
+  });
+  var mc = document.createElement('div');
+  mc.className = 'cell';
+  mc.id = 'cellmod';
+  mc.innerHTML = '<span class="tag">Mod</span>' +
+    '<button type="button" id="mmod" aria-label="Senk modifikator">−</button>' +
+    '<b id="cmod">+0</b>' +
+    '<button type="button" id="pmod" aria-label="Øk modifikator">+</button>';
+  grid.appendChild(mc);
+  $('mmod').addEventListener('click', function () { if (rolling) return; mod = Math.max(-10, mod - 1); changed(); });
+  $('pmod').addEventListener('click', function () { if (rolling) return; mod = Math.min(20, mod + 1); changed(); });
+
+  ['n', 'a', 'd'].forEach(function (k) {
+    $('adv-' + k).addEventListener('click', function () { if (rolling || !pool[20]) return; mode = k; changed(); });
+  });
+
+  function numStyle(s, v) {
+    var len = String(v).length;
+    return CFG[s].fs * (len <= 2 ? 1 : len === 3 ? 0.82 : 0.66);
+  }
+
+  function sizeFor(n) {
+    var px, per;
+    if (n === 1) return 'clamp(170px, min(60vw, 34vh), 260px)';
+    if (n === 2) { px = 140; per = 2; }
+    else if (n === 3) { px = 112; per = 3; }
+    else if (n === 4) { px = 130; per = 2; }
+    else if (n <= 6) { px = 112; per = 3; }
+    else if (n <= 12) { px = 90; per = 4; }
+    else { px = 70; per = 5; }
+    return 'min(' + px + 'px, calc((100vw - 60px) / ' + per + '))';
+  }
+
+  function dieSVG(it, idx) {
+    var cls = 'd' + (it.flag ? ' ' + it.flag : '') + (it.drop ? ' drop' : '');
+    var v = it.v == null ? it.s : it.v;
+    return '<svg class="' + cls + '" viewBox="0 0 200 200" aria-hidden="true" data-s="' + it.s + '">' +
+      '<g class="spin" style="animation-delay:' + (idx * 40) + 'ms">' + SHAPES[it.s] +
+      '<text class="num" x="100" y="' + CFG[it.s].y + '" style="font-size:' + numStyle(it.s, v) + 'px">' + v + '</text></g></svg>';
+  }
+
+  function renderDice(items, idle) {
+    var el = $('dice');
+    el.classList.remove('tumble');
+    el.classList.toggle('idle', !!idle);
+    if (!items.length) { el.style.removeProperty('--sz'); el.innerHTML = '<div class="none">Legg til minst én terning</div>'; return; }
+    el.style.setProperty('--sz', sizeFor(items.length));
+    var h = '';
+    items.forEach(function (it, i) { h += dieSVG(it, i); });
+    el.innerHTML = h;
+  }
+
+  function idleItems() {
+    var items = [];
+    TYPES.forEach(function (s) { for (var i = 0; i < pool[s]; i++) items.push({ s: s, v: null }); });
+    return items;
+  }
+
+  function setIdle() {
+    var n = total();
+    renderDice(idleItems(), true);
+    $('r1').className = 'r1';
+    $('r1').textContent = n ? 'Klar til kast' : 'Velg terninger';
+    $('r2').textContent = n ? 'Trykk på terningene' : 'Bruk + ved siden av en terningtype';
+    $('roll').disabled = !n;
+  }
+
+  function renderSetup() {
+    var t = total(), has = pool[20] > 0;
+    TYPES.forEach(function (s) {
+      $('c' + s).textContent = pool[s];
+      $('cell' + s).classList.toggle('on', pool[s] > 0);
+      $('m' + s).disabled = pool[s] < 1;
+      $('p' + s).disabled = t >= MAX_TOTAL;
+    });
+    $('cmod').textContent = sign(mod) + Math.abs(mod);
+    $('cellmod').classList.toggle('on', mod !== 0);
+    $('expr').textContent = exprText(true);
+    $('roll').setAttribute('aria-label', 'Kast ' + exprText(false));
+    $('advrow').classList.toggle('off', !has);
+    $('advnote').hidden = has;
+    ['n', 'a', 'd'].forEach(function (k) {
+      var b = $('adv-' + k);
+      b.disabled = !has;
+      b.setAttribute('aria-pressed', String(k === (has ? mode : 'n')));
+    });
+  }
+
+  function changed() { renderSetup(); setIdle(); save(); }
+
+  function renderHist() {
+    var el = $('hist');
+    if (!hist.length) { el.innerHTML = '<span class="empty">Kastene dine dukker opp her.</span>'; return; }
+    el.innerHTML = '';
+    hist.forEach(function (h) {
+      var c = document.createElement('div');
+      c.className = 'chip' + (h.flag ? ' ' + h.flag : '');
+      c.innerHTML = '<small>' + h.label + '</small><b>' + h.total + '</b>';
+      c.title = h.tip || '';
+      el.appendChild(c);
+    });
+  }
+
+  // Every d20 in the pool is rolled twice when advantage or disadvantage is on; other dice roll once.
+  function makeResult() {
+    var items = [], groups = [], sum = 0, useAdv = advOn();
+    TYPES.forEach(function (s) {
+      var n = pool[s];
+      if (!n) return;
+      var rolls = [], gs = 0, pairs = null, i;
+      if (s === 20 && useAdv) {
+        pairs = [];
+        for (i = 0; i < n; i++) {
+          var a = rnd(20), b = rnd(20);
+          var k = mode === 'a' ? Math.max(a, b) : Math.min(a, b);
+          var o = k === a ? b : a;
+          rolls.push(k); pairs.push([k, o]); gs += k;
+          items.push({ s: 20, v: k });
+          items.push({ s: 20, v: o, drop: true });
+        }
+      } else {
+        for (i = 0; i < n; i++) { var v = rnd(s); rolls.push(v); gs += v; items.push({ s: s, v: v }); }
+      }
+      groups.push({ s: s, n: n, rolls: rolls, sum: gs, pairs: pairs });
+      sum += gs;
+    });
+    items.forEach(function (it) {
+      if (it.s === 20 && !it.drop) it.flag = it.v === 20 ? 'nat20' : it.v === 1 ? 'nat1' : '';
+    });
+    return { items: items, groups: groups, sum: sum, adv: useAdv };
+  }
+
+  function describe(r) {
+    var parts = [];
+    if (r.groups.length === 1 && !r.adv) {
+      var g0 = r.groups[0];
+      if (g0.rolls.length > 1 || mod) {
+        parts.push(g0.rolls.join(' + ') + (mod ? ' ' + sign(mod) + ' ' + Math.abs(mod) : ''));
+      }
+      return parts;
+    }
+    r.groups.forEach(function (g) {
+      var name = (g.n > 1 ? g.n : '') + 'd' + g.s, body;
+      if (g.pairs) {
+        body = name + ' ' + modeName() + ': ' + g.pairs.map(function (p) { return p[0] + ' og <s>' + p[1] + '</s>'; }).join(' + ');
+      } else {
+        body = name + ': ' + g.rolls.join(' + ');
+      }
+      if (g.n > 1) body += ' = ' + g.sum;
+      parts.push(body);
+    });
+    if (mod) parts.push('Modifikator ' + sign(mod) + ' ' + Math.abs(mod));
+    return parts;
+  }
+
+  function roll() {
+    if (rolling || !total()) return;
+    rolling = true;
+    var r = makeResult();
+    var el = $('dice');
+
+    $('r1').className = 'r1';
+    $('r1').textContent = 'Kaster …';
+    $('r2').innerHTML = '&nbsp;';
+
+    renderDice(r.items.map(function (it) { return { s: it.s, v: rnd(it.s), drop: it.drop }; }), false);
+    void el.offsetWidth;
+    if (!reduce) el.classList.add('tumble');
+
+    var ticker = setInterval(function () {
+      var dd = el.querySelectorAll('.d');
+      for (var k = 0; k < dd.length; k++) {
+        var s = Number(dd[k].getAttribute('data-s')), v = rnd(s);
+        var t = dd[k].querySelector('.num');
+        t.textContent = v;
+        t.style.fontSize = numStyle(s, v) + 'px';
+      }
+    }, 60);
+
+    setTimeout(function () {
+      clearInterval(ticker);
+      renderDice(r.items, false);
+
+      var totalVal = r.sum + mod;
+      var kept = r.items.filter(function (it) { return !it.drop; });
+      var single = kept.length === 1;
+      var headFlag = (single && kept[0].s === 20) ? (kept[0].flag || '') : '';
+      var lead = (!single || mod) ? 'Sum ' : 'Resultat ';
+      var r1 = $('r1');
+      r1.className = 'r1' + (headFlag ? ' ' + headFlag : '');
+      r1.textContent = headFlag === 'nat20' ? 'Naturlig 20' : headFlag === 'nat1' ? 'Naturlig 1' : lead + totalVal;
+
+      var parts = describe(r);
+      if (headFlag && mod) parts.push('Sum ' + totalVal);
+      $('r2').innerHTML = parts.length ? parts.join(' · ') : '&nbsp;';
+
+      hist.unshift({ label: exprText(false), total: totalVal, flag: headFlag, tip: parts.join(' · ').replace(/<[^>]+>/g, '') });
+      hist = hist.slice(0, 12);
+      renderHist();
+      save();
+      $('hist').scrollLeft = 0;
+      rolling = false;
+    }, reduce ? 120 : 700);
+  }
+
+  $('roll').addEventListener('click', roll);
+  $('clear').addEventListener('click', function () {
+    if (rolling) return;
+    hist = [];
+    renderHist();
+    save();
+    setIdle();
+  });
+
+  renderSetup();
+  renderHist();
+  setIdle();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
